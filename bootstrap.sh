@@ -90,6 +90,45 @@ function check_build_environment () {
         exit 1
     fi
 
+    # make sure there is no other version of Rhino already installed
+    rhino_shell="java org.mozilla.javascript.tools.shell.Main -e"
+    jar_backup_dir=~/.jar_backup/
+    while [ 1 ]; do
+        $rhino_shell "" 2>/dev/null
+        if [ "$?" = "0" ]; then
+            # figure out the name of the already installed Rhino jar
+            rhino_path_script="\
+            var r = String(org.mozilla.javascript.Context.getCurrentContext()['class']\
+            .getClassLoader().getResource('org/mozilla/javascript/Context.class'));\
+            if (r) {\
+                r = r.split('!')[0];\
+                if(r)\
+                    print(r.split(':')[2]);\
+            }"
+            rhino_jar_path=$($rhino_shell "$rhino_path_script")
+
+            if [ -z $rhino_jar_path ]; then
+                echo "Error: Cannot determine location of existing Rhino jar."
+                exit 1
+            fi
+
+            echo "Warning: A Rhino jar already exists at \"$rhino_jar_path\"."
+            echo "This version of Rhino *will conflict* with the version of Rhino provided by Narwhal."
+            echo "Automatically move it to \"$jar_backup_dir\" so installation can proceed?"
+
+            if prompt "yes"; then
+                mkdir -p "$jar_backup_dir"
+                check_and_exit
+                mv "$rhino_jar_path" "$jar_backup_dir/"$(echo "$rhino_jar_path" | tr "/" "_")
+                check_and_exit
+            else
+                false; check_and_exit
+            fi
+        else
+            break
+        fi
+    done
+
     # make sure other dependencies are installed and on the $PATH
     OTHER_DEPS=(gcc unzip curl)
 
