@@ -187,7 +187,7 @@ CPWebViewScrollNative                           = 2;
             var win = null;
             try { win = [self DOMWindow]; } catch (e) {}
 
-            if (win && win.document)
+            if (win && win.document && win.document.body)
             {
                 var width = win.document.body.scrollWidth,
                     height = win.document.body.scrollHeight;
@@ -200,6 +200,8 @@ CPWebViewScrollNative                           = 2;
             else
             {
                 CPLog.warn("using default size 800*1600");
+                if (!win.document.body)
+                    CPLog.warn("no body element found in CPWebView");
             
                 [_frameView setFrameSize:CGSizeMake(800, 1600)];
             }
