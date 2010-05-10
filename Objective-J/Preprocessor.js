@@ -438,6 +438,8 @@ Preprocessor.prototype.implementation = function(tokens, /*StringBuffer*/ aStrin
 
             token = tokens.skip_whitespace();
         }
+        else
+            throw new SyntaxError(this.error_message("*** No superclass specified for class \"" + class_name + "\"."));
         
         CONCAT(buffer, "{var the_class = objj_allocateClassPair(" + superclass_name + ", \"" + class_name + "\"),\nmeta_class = the_class.isa;");
         
