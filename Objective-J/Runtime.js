@@ -307,7 +307,12 @@ var _objj_forward = new objj_method("forward", function(self, _cmd)
     var method = aClass.method_dtable[aSelector];\
     \
     if (!method)\
-        method = _objj_forward;\
+    {\
+        if (aSelector !== "forward::")\
+            method = _objj_forward;\
+        else\
+            throw new Error("*** Attempting to forward from an object to itself. This will result in infinite recursion. Make sure class \"" + aClass.name + "\" has a superclass.");\
+    }\
     \
     aMethodImplementation = method.method_imp;
 
