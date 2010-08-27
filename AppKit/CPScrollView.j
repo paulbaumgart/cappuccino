@@ -861,25 +861,34 @@ var _nativeScrollbarWidth = nil;
 {
     // Let the native scroll element to it's thing.
     [[[anEvent window] platformWindow] _propagateCurrentDOMEvent:YES];
+
+    // The browser lags 1 event behind without this timeout.
+    // --
+    // Tried to use [[CPRunLoop currentRunLoop] limitDateForMode:CPDefaultRunLoopMode];
+    // but this was the only fix.
+    // TODO: Figure out why?
+    setTimeout(function(){
+        
+        // Get the scroll offset from the native element
+        var scrollOrigin = _CGPointMake(_nativeScrollElement.scrollLeft, _nativeScrollElement.scrollTop);
     
-    // Get the scroll offset from the native element
-    var scrollOrigin = _CGPointMake(_nativeScrollElement.scrollLeft, _nativeScrollElement.scrollTop);
+        // Constrain the scroll element
+        var constrainedOrigin = [_contentView constrainScrollPoint:scrollOrigin];
+        _nativeScrollElement.scrollLeft = constrainedOrigin.x;
+        _nativeScrollElement.scrollTop = constrainedOrigin.y;
     
-    // Constrain the scroll element
-    var constrainedOrigin = [_contentView constrainScrollPoint:scrollOrigin];
-    _nativeScrollElement.scrollLeft = constrainedOrigin.x;
-    _nativeScrollElement.scrollTop = constrainedOrigin.y;
+        // Scroll the views
+        [_contentView scrollToPoint:constrainedOrigin];
+        [_headerClipView scrollToPoint:CGPointMake(constrainedOrigin.x, 0.0)];
     
-    // Scroll the views
-    [_contentView scrollToPoint:constrainedOrigin];
-    [_headerClipView scrollToPoint:CGPointMake(constrainedOrigin.x, 0.0)];
+        // TODO: this!
+        //var extraX = ((contentBounds.origin.x - constrainedOrigin.x) / _horizontalLineScroll) * [enclosingScrollView horizontalLineScroll],
+        //    extraY = ((contentBounds.origin.y - constrainedOrigin.y) / _verticalLineScroll) * [enclosingScrollView verticalLineScroll];
     
-    // TODO: this!
-    //var extraX = ((contentBounds.origin.x - constrainedOrigin.x) / _horizontalLineScroll) * [enclosingScrollView horizontalLineScroll],
-    //    extraY = ((contentBounds.origin.y - constrainedOrigin.y) / _verticalLineScroll) * [enclosingScrollView verticalLineScroll];
+        //if (extraX || extraY)
+        //    [enclosingScrollView _respondToScrollWheelEventWithDeltaX:extraX deltaY:extraY];
     
-    //if (extraX || extraY)
-    //    [enclosingScrollView _respondToScrollWheelEventWithDeltaX:extraX deltaY:extraY];
+    }, 0);
     
 }
 
