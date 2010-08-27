@@ -78,6 +78,19 @@ function check_and_exit () {
     fi
 }
 
+function attempt_and_retry_once () {
+    $@
+    if [ ! "$?" = "0" ]; then
+        echo "Retrying..."
+        sleep 1
+        $@
+        if [ ! "$?" = "0" ]; then
+            echo "Error: problem running bootstrap.sh. Exiting."
+            exit 1
+        fi
+    fi
+}
+
 function check_build_environment () {
     # make sure user is running HotSpot JVM
     java -version 2>&1 | grep HotSpot &> /dev/null
@@ -281,14 +294,14 @@ if ! tusk update; then
     exit 1
 fi
 
-tusk $tusk_install_command browserjs jake shrinksafe $extra_packages
+attempt_and_retry_once tusk $tusk_install_command browserjs jake shrinksafe $extra_packages
 
 if [ `uname` = "Darwin" ]; then
     echo "================================================================================"
     echo "Would you like to install the JavaScriptCore engine for Narwhal?"
     echo "This is optional but will make building and running Objective-J much faster."
     if prompt "yes"; then
-        tusk $tusk_install_command narwhal-jsc
+        attempt_and_retry_once tusk $tusk_install_command narwhal-jsc
 
         if ! (cd "$install_directory/packages/narwhal-jsc" && make webkit); then
             rm -rf "$install_directory/packages/narwhal-jsc"
