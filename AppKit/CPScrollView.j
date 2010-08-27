@@ -26,6 +26,7 @@
 
 #include "CoreGraphics/CGGeometry.h"
 
+var _nativeScrollbarWidth = nil;
 
 /*!
     @ingroup appkit
@@ -40,6 +41,9 @@
     CPClipView      _contentView;
     CPClipView      _headerClipView;
     CPView          _cornerView;
+    
+    DOMElement      _nativeScrollElement;
+    DOMElement      _innerNativeScrollElement;
 
     BOOL            _hasVerticalScroller;
     BOOL            _hasHorizontalScroller;
@@ -60,9 +64,7 @@
 
 - (id)initWithFrame:(CGRect)aFrame
 {
-    self = [super initWithFrame:aFrame];
-
-    if (self)
+    if (self = [super initWithFrame:aFrame])
     {
         _verticalLineScroll = 10.0;
         _verticalPageScroll = 10.0;
@@ -79,7 +81,22 @@
         _headerClipView = [[CPClipView alloc] init];
 
         [self addSubview:_headerClipView];
-
+        
+        _nativeScrollElement = document.createElement("div");
+        _nativeScrollElement.style.overflow = "scroll";
+        _nativeScrollElement.style.position = "absolute";
+        _nativeScrollElement.style.top = 0;
+        _nativeScrollElement.style.left = 0;
+        
+        var _nativeScrollStyleOverflow = - [[self class] _nativeScrollbarWidth] + @"px";
+        _nativeScrollElement.style.right = _nativeScrollStyleOverflow;
+        _nativeScrollElement.style.bottom = _nativeScrollStyleOverflow;
+        
+        self._DOMElement.appendChild(_nativeScrollElement);
+        
+        _innerNativeScrollElement = document.createElement("div");
+        _nativeScrollElement.appendChild(_innerNativeScrollElement);
+        
         [self setHasVerticalScroller:YES];
         [self setHasHorizontalScroller:YES];
     }
@@ -144,6 +161,46 @@
 - (CGRect)_insetBounds
 {
     return [[self class] _insetBounds:[self bounds] borderType:_borderType];
+}
+
+/*!
+    Returns the width of the browsers native scrollbars.
+*/
++ (int)_nativeScrollbarWidth
+{
+    if (_nativeScrollbarWidth !== nil)
+        return _nativeScrollbarWidth;
+    
+    // The outer element
+    var scrollElement = document.createElement("div");
+    scrollElement.style.position = "absolute";
+    scrollElement.style.top = "-1000px";
+    scrollElement.style.left = "-1000px";
+    scrollElement.style.width = "100px";
+    scrollElement.style.height = "20px";
+    scrollElement.style.overflow = "hidden";
+    document.body.appendChild(scrollElement);
+
+    // Inner element that we use to figure out the delta
+    var innerElement = document.createElement("div");
+    innerElement.style.width = "100%";
+    innerElement.style.height = "100px";
+
+    scrollElement.appendChild(innerElement);
+    
+    // Get the current width of the inner div without scrollbars
+    var initialWidth = innerElement.offsetWidth;
+    
+    // Add scrollbars
+    scrollElement.style.overflow = "auto";
+
+    // The size of the scrollbar is the delta of the old & new width.
+    _nativeScrollbarWidth = initialWidth - innerElement.offsetWidth;
+    
+    // Remove the DOM elements
+    document.body.removeChild(scrollElement);
+    
+    return _nativeScrollbarWidth;
 }
 
 // Determining component sizes
@@ -328,6 +385,10 @@
     [_cornerView setFrame:[self _cornerViewFrame]];
 
     --_recursionCount;
+    
+    // Update the native scroll elements
+    _innerNativeScrollElement.style.width = (_CGRectGetWidth(documentFrame) + horizontalScrollerHeight) + @"px";
+    _innerNativeScrollElement.style.height = (_CGRectGetHeight(documentFrame) + verticalScrollerWidth) + @"px";
 }
 
 // Managing Graphics Attributes
@@ -792,32 +853,28 @@
 */
 - (void)scrollWheel:(CPEvent)anEvent
 {
-    [self _respondToScrollWheelEventWithDeltaX:[anEvent deltaX] * _horizontalLineScroll
-                                        deltaY:[anEvent deltaY] * _verticalLineScroll];
-}
-
-- (void)_respondToScrollWheelEventWithDeltaX:(float)deltaX deltaY:(float)deltaY
-{
-    var documentFrame = [[self documentView] frame],
-        contentBounds = [_contentView bounds],
-        contentFrame = [_contentView frame],
-        enclosingScrollView = [self enclosingScrollView],
-        extraX = 0,
-        extraY = 0;
-
-    // We want integral bounds!
-    contentBounds.origin.x = ROUND(contentBounds.origin.x + deltaX);
-    contentBounds.origin.y = ROUND(contentBounds.origin.y + deltaY);
-
-    var constrainedOrigin = [_contentView constrainScrollPoint:CGPointCreateCopy(contentBounds.origin)];
-    extraX = ((contentBounds.origin.x - constrainedOrigin.x) / _horizontalLineScroll) * [enclosingScrollView horizontalLineScroll];
-    extraY = ((contentBounds.origin.y - constrainedOrigin.y) / _verticalLineScroll) * [enclosingScrollView verticalLineScroll];
-
+    // Let the native scroll element to it's thing.
+    [[[anEvent window] platformWindow] _propagateCurrentDOMEvent:YES];
+    
+    // Get the scroll offset from the native element
+    var scrollOrigin = _CGPointMake(_nativeScrollElement.scrollLeft, _nativeScrollElement.scrollTop);
+    
+    // Constrain the scroll element
+    var constrainedOrigin = [_contentView constrainScrollPoint:scrollOrigin];
+    _nativeScrollElement.scrollLeft = constrainedOrigin.x;
+    _nativeScrollElement.scrollTop = constrainedOrigin.y;
+    
+    // Scroll the views
     [_contentView scrollToPoint:constrainedOrigin];
     [_headerClipView scrollToPoint:CGPointMake(constrainedOrigin.x, 0.0)];
-
-    if (extraX || extraY)
-        [enclosingScrollView _respondToScrollWheelEventWithDeltaX:extraX deltaY:extraY];
+    
+    // TODO: this!
+    //var extraX = ((contentBounds.origin.x - constrainedOrigin.x) / _horizontalLineScroll) * [enclosingScrollView horizontalLineScroll],
+    //    extraY = ((contentBounds.origin.y - constrainedOrigin.y) / _verticalLineScroll) * [enclosingScrollView verticalLineScroll];
+    
+    //if (extraX || extraY)
+    //    [enclosingScrollView _respondToScrollWheelEventWithDeltaX:extraX deltaY:extraY];
+    
 }
 
 - (void)keyDown:(CPEvent)anEvent
