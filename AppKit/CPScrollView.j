@@ -654,6 +654,9 @@ var _nativeScrollbarWidth = nil;
     }
 
     [_contentView scrollToPoint:contentBounds.origin];
+    
+    // Keep the native scroll element up to date
+    _nativeScrollElement.scrollTop = contentBounds.origin.y;
 }
 
 /* @ignore */
@@ -685,6 +688,9 @@ var _nativeScrollbarWidth = nil;
 
     [_contentView scrollToPoint:contentBounds.origin];
     [_headerClipView scrollToPoint:CGPointMake(contentBounds.origin.x, 0.0)];
+    
+    // Keep the native scroll element up to date
+    _nativeScrollElement.scrollLeft = contentBounds.origin.x;
 }
 
 /*!
