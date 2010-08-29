@@ -20,6 +20,8 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+@import <Foundation/CPDate.j>
+
 @import "CPView.j"
 @import "CPClipView.j"
 @import "CPScroller.j"
@@ -27,6 +29,9 @@
 #include "CoreGraphics/CGGeometry.h"
 
 var _nativeScrollbarWidth = nil;
+
+var startTimeStamp = nil,
+    scrollWheelEventCounter = 0;
 
 /*!
     @ingroup appkit
@@ -859,6 +864,14 @@ var _nativeScrollbarWidth = nil;
 */
 - (void)scrollWheel:(CPEvent)anEvent
 {
+    if (!startTimeStamp)
+        startTimeStamp = [CPDate date];
+
+    scrollWheelEventCounter++;
+
+    if (scrollWheelEventCounter % 10 === 0)
+        CPLog(@"scrollWheel events per second: " + scrollWheelEventCounter / [[CPDate date] timeIntervalSinceDate:startTimeStamp]);
+
     // Let the native scroll element to it's thing.
     [[[anEvent window] platformWindow] _propagateCurrentDOMEvent:YES];
 
